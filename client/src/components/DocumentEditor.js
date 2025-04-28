@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '../services/ApiClient';
 import { useAuth } from '../context/AuthContext';
 
 // Custom hook for polling document changes
@@ -18,11 +18,7 @@ function useDocumentPolling(documentId, username, initialLastEdited, onDocumentC
       
       try {
         isPollingRef.current = true;
-        // Pass username explicitly in the query parameter
-        const response = await axios.get(
-          `/api/documents/${documentId}?username=${encodeURIComponent(username)}`, 
-          { withCredentials: true }
-        );
+        const response = await apiClient.getDocument(documentId);
         
         if (response.data.success) {
           const doc = response.data.document;
@@ -128,11 +124,7 @@ function DocumentEditor() {
     
     try {
       setLoading(true);
-      // Pass username explicitly in the query parameter
-      const response = await axios.get(
-        `/api/documents/${documentId}?username=${encodeURIComponent(user.username)}`, 
-        { withCredentials: true }
-      );
+      const response = await apiClient.getDocument(documentId);
       
       if (response.data.success) {
         const doc = response.data.document;

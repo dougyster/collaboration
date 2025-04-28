@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '../services/ApiClient';
 import { useAuth } from '../context/AuthContext';
 
 // Custom hook for polling document updates
@@ -18,8 +18,7 @@ function useDocumentsPolling(username, initialFetch) {
     try {
       isPollingRef.current = true;
       setLoading(true);
-      // Pass username explicitly in the query parameter
-      const response = await axios.get(`/api/documents?username=${encodeURIComponent(username)}`, { withCredentials: true });
+      const response = await apiClient.getDocuments();
       
       if (response.data.success) {
         setDocuments(response.data.documents);
@@ -69,7 +68,7 @@ function useUsers(username) {
     try {
       setLoading(true);
       // Pass username explicitly in the query parameter
-      const response = await axios.get(`/api/users?username=${encodeURIComponent(username)}`, { withCredentials: true });
+      const response = await apiClient.getUsers();
       
       if (response.data.success) {
         setUsers(response.data.users);
@@ -133,10 +132,7 @@ function Dashboard() {
       setCreating(true);
       setLocalError('');
       
-      const response = await axios.post('/api/documents', {
-        title: newDocTitle,
-        username: user.username // Explicitly pass the username
-      }, { withCredentials: true });
+      const response = await apiClient.createDocument(newDocTitle);
       
       if (response.data.success) {
         setNewDocTitle('');
@@ -159,7 +155,7 @@ function Dashboard() {
     }
     
     try {
-      const response = await axios.delete(`/api/documents/${documentId}`, { withCredentials: true });
+      const response = await apiClient.deleteDocument(documentId);
       
       if (response.data.success) {
         triggerRefresh(); // Use our new refresh trigger

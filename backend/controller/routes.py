@@ -8,18 +8,30 @@ import os
 import json
 from datetime import datetime
 
-from interactor.business_logic import BusinessLogic
-from database.db_interface import DatabaseInterface, User, Document
+from backend.interactor.business_logic import BusinessLogic
+from backend.database.db_interface import DatabaseInterface, User, Document
+from backend.distributed.gateway import DistributedGateway
 
 # Initialize Flask app
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev_secret_key')  # For session management
 CORS(app, supports_credentials=True)  # Enable CORS for cross-origin requests
 
-# Initialize database and business logic
-db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'database', 'data.json')
-db_interface = DatabaseInterface(db_path)
-business_logic = BusinessLogic(db_interface)
+# Initialize distributed gateway
+default_db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'database', 'data.json')
+db_path = os.environ.get('DB_PATH', default_db_path)
+server_id = os.environ.get('SERVER_ID')
+if not server_id:
+    raise ValueError("SERVER_ID environment variable must be set")
+    
+port = int(os.environ.get('GRPC_PORT', '50051'))
+peer_addresses = os.environ.get('PEER_ADDRESSES', '').split(',') if os.environ.get('PEER_ADDRESSES') else []
+
+print(f"Initializing distributed gateway with server_id={server_id}, port={port}, db_path={db_path}")
+distributed_gateway = DistributedGateway(server_id, port, peer_addresses, db_path)
+
+# For backward compatibility and direct database access
+db_interface = distributed_gateway.server.db_interface
 
 # User routes
 @app.route('/api/users', methods=['GET'])
@@ -58,7 +70,7 @@ def register():
     username = data.get('username')
     password = data.get('password')
     
-    success, message = business_logic.register_user(username, password)
+    success, message = distributed_gateway.register_user(username, password)
     
     if success:
         return jsonify({'success': True, 'message': message}), 201
@@ -72,7 +84,7 @@ def login():
     username = data.get('username')
     password = data.get('password')
     
-    success, message = business_logic.authenticate_user(username, password)
+    success, message = distributed_gateway.authenticate_user(username, password)
     
     if success:
         session['username'] = username
@@ -119,7 +131,7 @@ def get_documents():
     if not username:
         return jsonify({'success': False, 'message': 'Not logged in or username not provided.'}), 401
     
-    success, message, documents = business_logic.get_user_documents(username)
+    success, message, documents = distributed_gateway.get_user_documents(username)
     
     if success:
         return jsonify({
@@ -153,7 +165,7 @@ def create_document():
     
     title = data.get('title', 'Untitled Document')
     
-    success, message, document_id = business_logic.create_document(title, username)
+    success, message, document_id = distributed_gateway.create_document(title, username)
     
     if success:
         return jsonify({
@@ -177,7 +189,7 @@ def get_document(document_id):
     if not username:
         return jsonify({'success': False, 'message': 'Not logged in or username not provided.'}), 401
     
-    success, message, document = business_logic.get_document(document_id, username)
+    success, message, document = distributed_gateway.get_document(document_id, username)
     
     if success:
         return jsonify({
@@ -203,7 +215,7 @@ def update_document_title(document_id):
     data = request.json
     title = data.get('title')
     
-    success, message = business_logic.update_document_title(document_id, title, username)
+    success, message = distributed_gateway.update_document_title(document_id, title, username)
     
     if success:
         return jsonify({'success': True, 'message': message}), 200
@@ -230,12 +242,12 @@ def update_document_content(document_id):
     
     # If base_content is provided, use merge strategy
     if base_content is not None:
-        success, message, updated_content = business_logic.update_document_content_with_merge(
-            document_id, content, base_content, username
+        success, message, updated_content = distributed_gateway.update_document_content(
+            document_id, content, username, base_content
         )
     else:
         # Otherwise use simple last-write-wins
-        success, message, updated_content = business_logic.update_document_content(
+        success, message, updated_content = distributed_gateway.update_document_content(
             document_id, content, username
         )
     
@@ -255,7 +267,7 @@ def delete_document(document_id):
     if not username:
         return jsonify({'success': False, 'message': 'Not logged in.'}), 401
     
-    success, message = business_logic.delete_document(document_id, username)
+    success, message = distributed_gateway.delete_document(document_id, username)
     
     if success:
         return jsonify({'success': True, 'message': message}), 200
@@ -272,7 +284,7 @@ def add_user_to_document(document_id):
     data = request.json
     user_to_add = data.get('username')
     
-    success, message = business_logic.add_user_to_document(document_id, user_to_add, username)
+    success, message = distributed_gateway.add_user_to_document(document_id, user_to_add, username)
     
     if success:
         return jsonify({'success': True, 'message': message}), 200
@@ -286,12 +298,31 @@ def remove_user_from_document(document_id, username_to_remove):
     if not username:
         return jsonify({'success': False, 'message': 'Not logged in.'}), 401
     
-    success, message = business_logic.remove_user_from_document(document_id, username_to_remove, username)
+    success, message = distributed_gateway.remove_user_from_document(document_id, username_to_remove, username)
     
     if success:
         return jsonify({'success': True, 'message': message}), 200
     else:
         return jsonify({'success': False, 'message': message}), 400
+
+# Server status routes
+@app.route('/api/server/status', methods=['GET'])
+def get_server_status():
+    """Get the status of the distributed server."""
+    status = distributed_gateway.get_server_status()
+    return jsonify({
+        'success': True,
+        'status': status
+    }), 200
+
+@app.route('/api/cluster/status', methods=['GET'])
+def get_cluster_status():
+    """Get the status of the distributed cluster."""
+    status = distributed_gateway.get_cluster_status()
+    return jsonify({
+        'success': True,
+        'status': status
+    }), 200
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

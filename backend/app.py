@@ -2,7 +2,7 @@
 Main application file for the collaboration system.
 """
 import os
-from controller.routes import app
+from backend.controller.routes import app
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

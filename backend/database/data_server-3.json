@@ -1,0 +1,42 @@
+{
+  "users": {
+    "Douglas": {
+      "username": "Douglas",
+      "password": "Testing123!",
+      "documents": [
+        "816b7614-b5a4-4dcb-a264-c3e9434519ea",
+        "b109e5d9-4634-4241-b1b3-8ec7b7ee00b2"
+      ]
+    },
+    "Sezim": {
+      "username": "Sezim",
+      "password": "Testing123!",
+      "documents": [
+        "816b7614-b5a4-4dcb-a264-c3e9434519ea",
+        "b109e5d9-4634-4241-b1b3-8ec7b7ee00b2"
+      ]
+    }
+  },
+  "documents": {
+    "816b7614-b5a4-4dcb-a264-c3e9434519ea": {
+      "id": "816b7614-b5a4-4dcb-a264-c3e9434519ea",
+      "title": "My First Doc",
+      "data": "Hi! Is this working? YOOOOOOOO",
+      "last_edited": "2025-04-23T23:50:25.025341",
+      "users": [
+        "Douglas",
+        "Sezim"
+      ]
+    },
+    "b109e5d9-4634-4241-b1b3-8ec7b7ee00b2": {
+      "id": "b109e5d9-4634-4241-b1b3-8ec7b7ee00b2",
+      "title": "CS262",
+      "data": "Yo - testing, testing",
+      "last_edited": "2025-04-23T23:52:34.752898",
+      "users": [
+        "Sezim",
+        "Douglas"
+      ]
+    }
+  }
+}

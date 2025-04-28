@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import axios from 'axios';
+import apiClient from '../services/ApiClient';
 
 const AuthContext = createContext();
 
@@ -32,7 +32,7 @@ export function AuthProvider({ children }) {
           return;
         }
         
-        const response = await axios.get('/api/user', { withCredentials: true });
+        const response = await apiClient.checkAuth();
         if (response.data.success) {
           setUser(response.data.user);
         }
@@ -48,17 +48,12 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     try {
-      const response = await axios.post('/api/login', { username, password }, { withCredentials: true });
+      const response = await apiClient.login(username, password);
       if (response.data.success) {
-        // Fetch user data after successful login
-        const userResponse = await axios.get('/api/user', { withCredentials: true });
-        if (userResponse.data.success) {
-          const userData = userResponse.data.user;
-          // Store user in state and localStorage
-          setUser(userData);
-          localStorage.setItem('collaborationUser', JSON.stringify(userData));
-          return { success: true, message: response.data.message };
-        }
+        // User data is already included in the login response
+        setUser(response.data.user);  
+        localStorage.setItem('collaborationUser', JSON.stringify(response.data.user));
+        return { success: true, message: response.data.message };
       }
       return { success: false, message: response.data.message };
     } catch (error) {
@@ -71,7 +66,7 @@ export function AuthProvider({ children }) {
 
   const register = async (username, password) => {
     try {
-      const response = await axios.post('/api/register', { username, password });
+      const response = await apiClient.register(username, password);
       return { success: response.data.success, message: response.data.message };
     } catch (error) {
       return {
@@ -83,7 +78,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await axios.post('/api/logout', {}, { withCredentials: true });
+      await apiClient.logout();
       // Clear user from state and localStorage
       setUser(null);
       localStorage.removeItem('collaborationUser');

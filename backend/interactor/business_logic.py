@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 import difflib
 
-from database.db_interface import DatabaseInterface, User, Document
+from backend.database.db_interface import DatabaseInterface, User, Document
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
