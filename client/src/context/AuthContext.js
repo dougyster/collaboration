@@ -48,15 +48,21 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     try {
+      console.log('Attempting login for:', username);
       const response = await apiClient.login(username, password);
-      if (response.data.success) {
-        // User data is already included in the login response
-        setUser(response.data.user);  
-        localStorage.setItem('collaborationUser', JSON.stringify(response.data.user));
-        return { success: true, message: response.data.message };
+      console.log('Login response:', response);
+      
+      // Create a user object since the backend doesn't provide one
+      if (response.success) {
+        const userObj = { username };
+        console.log('Setting user to:', userObj);
+        setUser(userObj);
+        localStorage.setItem('collaborationUser', JSON.stringify(userObj));
+        return { success: true, message: response.message };
       }
-      return { success: false, message: response.data.message };
+      return { success: false, message: response.message };
     } catch (error) {
+      console.error('Login error:', error);
       return {
         success: false,
         message: error.response?.data?.message || 'Login failed. Please try again.'

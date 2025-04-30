@@ -5,9 +5,9 @@
 
 // List of available API servers in the cluster
 const API_SERVERS = [
-  'http://localhost:5000',
-  'http://localhost:5001',
-  'http://localhost:5002'
+  'http://10.250.103.230:5000',
+  'http://10.250.103.230:5001',
+  'http://10.250.103.230:5002'
 ];
 
 // Default server to use (first one in the list)

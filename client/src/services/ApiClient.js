@@ -36,8 +36,12 @@ class ApiClient {
    */
   async request(method, url, data = null, config = {}) {
     // Make sure username is included in all requests to avoid session confusion
+    // But only add it as a query parameter for GET and DELETE requests
+    // For POST and PUT, we'll include it in the request body
     const username = localStorage.getItem('username');
-    if (username) {
+    const isGetOrDelete = method.toLowerCase() === 'get' || method.toLowerCase() === 'delete';
+    
+    if (username && isGetOrDelete) {
       if (!url.includes('?')) {
         url = `${url}?username=${encodeURIComponent(username)}`;
       } else if (!url.includes('username=')) {
@@ -193,8 +197,9 @@ class ApiClient {
   }
 
   async addUserToDocument(documentId, userToAdd) {
-    const username = localStorage.getItem('username');
-    return this.post(`/api/documents/${documentId}/users`, { username, user_to_add: userToAdd });
+    // The backend expects the user to add in the 'username' parameter
+    console.log(`Sharing document ${documentId} with user ${userToAdd}`);
+    return this.post(`/api/documents/${documentId}/users`, { username: userToAdd });
   }
 
   async getClusterStatus() {

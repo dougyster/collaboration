@@ -4,30 +4,22 @@
       "username": "Douglas",
       "password": "Testing123!",
       "documents": [
-        "816b7614-b5a4-4dcb-a264-c3e9434519ea",
-        "b109e5d9-4634-4241-b1b3-8ec7b7ee00b2"
+        "b109e5d9-4634-4241-b1b3-8ec7b7ee00b2",
+        "3938944c-9306-47a3-8539-53646c0a8a05",
+        "c3ca696c-9fea-443c-9c5f-5ad50b286ff5",
+        "66e1a08e-4f10-4bbe-8faa-194cd5a5e69d"
       ]
     },
     "Sezim": {
       "username": "Sezim",
       "password": "Testing123!",
       "documents": [
-        "816b7614-b5a4-4dcb-a264-c3e9434519ea",
-        "b109e5d9-4634-4241-b1b3-8ec7b7ee00b2"
+        "b109e5d9-4634-4241-b1b3-8ec7b7ee00b2",
+        "3938944c-9306-47a3-8539-53646c0a8a05"
       ]
     }
   },
   "documents": {
-    "816b7614-b5a4-4dcb-a264-c3e9434519ea": {
-      "id": "816b7614-b5a4-4dcb-a264-c3e9434519ea",
-      "title": "My First Doc",
-      "data": "Hi! Is this working? YOOOOOOOO",
-      "last_edited": "2025-04-23T23:50:25.025341",
-      "users": [
-        "Douglas",
-        "Sezim"
-      ]
-    },
     "b109e5d9-4634-4241-b1b3-8ec7b7ee00b2": {
       "id": "b109e5d9-4634-4241-b1b3-8ec7b7ee00b2",
       "title": "CS262",
@@ -35,6 +27,61 @@
       "last_edited": "2025-04-23T23:52:34.752898",
       "users": [
         "Sezim",
+        "Douglas"
+      ]
+    },
+    "57dd5f26-18d7-4777-b0f5-a99e240233fe": {
+      "id": "57dd5f26-18d7-4777-b0f5-a99e240233fe",
+      "title": "CS262 Final Push",
+      "data": "",
+      "last_edited": "2025-04-30T01:16:40.135321",
+      "users": [
+        "Douglas"
+      ]
+    },
+    "9ef0b983-86a0-45ef-b80a-68ede004ec8c": {
+      "id": "9ef0b983-86a0-45ef-b80a-68ede004ec8c",
+      "title": "CS262 Final Push",
+      "data": "",
+      "last_edited": "2025-04-30T01:21:04.421567",
+      "users": [
+        "Douglas"
+      ]
+    },
+    "dcf15b1a-4f3a-40bc-b5c4-ac6fefdde15c": {
+      "id": "dcf15b1a-4f3a-40bc-b5c4-ac6fefdde15c",
+      "title": "cs262 final push!",
+      "data": "",
+      "last_edited": "2025-04-30T01:21:40.055906",
+      "users": [
+        "Douglas"
+      ]
+    },
+    "3938944c-9306-47a3-8539-53646c0a8a05": {
+      "id": "3938944c-9306-47a3-8539-53646c0a8a05",
+      "title": "cs262 final push!",
+      "data": "",
+      "last_edited": "2025-04-30T01:21:40.056033",
+      "users": [
+        "Douglas",
+        "Sezim"
+      ]
+    },
+    "c3ca696c-9fea-443c-9c5f-5ad50b286ff5": {
+      "id": "c3ca696c-9fea-443c-9c5f-5ad50b286ff5",
+      "title": "Dennis and Nati",
+      "data": "",
+      "last_edited": "2025-04-30T02:34:54.168086",
+      "users": [
+        "Douglas"
+      ]
+    },
+    "66e1a08e-4f10-4bbe-8faa-194cd5a5e69d": {
+      "id": "66e1a08e-4f10-4bbe-8faa-194cd5a5e69d",
+      "title": "test",
+      "data": "",
+      "last_edited": "2025-04-30T02:50:08.009102",
+      "users": [
         "Douglas"
       ]
     }

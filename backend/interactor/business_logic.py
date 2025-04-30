@@ -81,6 +81,39 @@ class BusinessLogic:
             return True, "Document created successfully.", document_id
         else:
             return False, "Failed to create document.", None
+            
+    def create_document_with_id(self, title: str, username: str, document_id: str) -> Tuple[bool, str, Optional[str]]:
+        """Create a new document with a specified ID to prevent duplicate creation."""
+        logger.info(f"Creating document '{title}' with ID {document_id} for user: {username}")
+        
+        user = self.db.get_user(username)
+        if not user:
+            return False, "User not found.", None
+        
+        # Check if document already exists
+        existing_doc = self.db.get_document(document_id)
+        if existing_doc:
+            # Document already exists, just return success
+            logger.info(f"Document {document_id} already exists, skipping creation")
+            return True, "Document already exists.", document_id
+        
+        document = Document(
+            id=document_id,
+            title=title,
+            data="",  # Empty document initially
+            last_edited=datetime.now(),
+            users=[username]
+        )
+        
+        success = self.db.create_document(document)
+        
+        if success:
+            # Update user's document list
+            user.documents.append(document_id)
+            self.db.update_user(user)
+            return True, "Document created successfully.", document_id
+        else:
+            return False, "Failed to create document.", None
     
     def get_document(self, document_id: str, username: str) -> Tuple[bool, str, Optional[Document]]:
         """Get a document by ID."""

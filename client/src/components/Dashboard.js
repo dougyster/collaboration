@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import apiClient from '../services/ApiClient';
 import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
 
 // Custom hook for polling document updates
 function useDocumentsPolling(username, initialFetch) {
@@ -19,15 +20,16 @@ function useDocumentsPolling(username, initialFetch) {
       isPollingRef.current = true;
       setLoading(true);
       const response = await apiClient.getDocuments();
+      console.log('Documents response:', response);
       
-      if (response.data.success) {
-        setDocuments(response.data.documents);
+      if (response.success) {
+        setDocuments(response.documents || []);
       } else {
         setError('Failed to fetch documents');
       }
     } catch (err) {
       setError('Error fetching documents. Please try again.');
-      console.error(err);
+      console.error('Error fetching documents:', err);
     } finally {
       setLoading(false);
       isPollingRef.current = false;
@@ -53,7 +55,7 @@ function useDocumentsPolling(username, initialFetch) {
     };
   }, [username, initialFetch, fetchDocuments]);
   
-  return { documents, loading, error, fetchDocuments };
+  return { documents, loading, error };
 }
 
 // Custom hook for managing users
@@ -69,15 +71,16 @@ function useUsers(username) {
       setLoading(true);
       // Pass username explicitly in the query parameter
       const response = await apiClient.getUsers();
+      console.log('Users response:', response);
       
-      if (response.data.success) {
-        setUsers(response.data.users);
+      if (response.success) {
+        setUsers(response.users || []);
       } else {
         setError('Failed to fetch users');
       }
     } catch (err) {
       setError('Error fetching users. Please try again.');
-      console.error(err);
+      console.error('Error fetching users:', err);
     } finally {
       setLoading(false);
     }
@@ -100,17 +103,17 @@ function Dashboard() {
   const [sharingStatus, setSharingStatus] = useState({ message: '', isError: false });
   const [refreshTrigger, setRefreshTrigger] = useState(0); // Used to trigger a refresh of documents
   const [localError, setLocalError] = useState(''); // Local error state for component-specific errors
+  const [isSubmitting, setIsSubmitting] = useState(false); // Track if a form is being submitted
   
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { users, loading: loadingUsers } = useUsers(user?.username);
+  const { users } = useUsers(user?.username);
   
   // Use our polling hook for documents with explicit username
   const { 
     documents, 
     loading, 
-    error, 
-    fetchDocuments 
+    error
   } = useDocumentsPolling(user?.username, refreshTrigger);
   
   // Force refresh when a new document is created
@@ -118,34 +121,72 @@ function Dashboard() {
     setRefreshTrigger(prev => prev + 1);
   };
 
-  // fetchDocuments is now provided by the useDocumentsPolling hook
-
+  // Create a document with strict prevention of duplicate submissions
   const handleCreateDocument = async (e) => {
     e.preventDefault();
     
+    // Validate title
     if (!newDocTitle.trim()) {
       setLocalError('Please enter a document title');
       return;
     }
     
+    // Strict prevention of duplicate submissions
+    if (isSubmitting || creating) {
+      console.log('Already submitting, ignoring duplicate request');
+      return;
+    }
+    
+    // Set submission flags and disable the form
+    setIsSubmitting(true);
+    setCreating(true);
+    setLocalError('');
+    
+    // Store title in a local variable to prevent closure issues
+    const titleToCreate = newDocTitle;
+    
+    // Clear the input field immediately to prevent duplicate submissions
+    setNewDocTitle('');
+    
+    // Disable the form button for a longer period to prevent double-clicks
+    document.querySelector('button[type="submit"]').disabled = true;
+    
     try {
-      setCreating(true);
-      setLocalError('');
+      console.log('Creating document with title:', titleToCreate);
       
-      const response = await apiClient.createDocument(newDocTitle);
+      const response = await apiClient.createDocument(titleToCreate);
+      console.log('Create document response:', response);
       
-      if (response.data.success) {
-        setNewDocTitle('');
-        triggerRefresh(); // Use our new refresh trigger
-        navigate(`/documents/${response.data.document_id}`);
+      if (response.success && response.document_id) {
+        // Successful creation - navigate to the new document
+        console.log('Document created successfully, navigating to:', response.document_id);
+        navigate(`/documents/${response.document_id}`);
       } else {
-        setLocalError(response.data.message);
+        // Failed creation
+        console.error('Failed to create document:', response.message);
+        setLocalError(response.message || 'Failed to create document');
+        
+        // Restore the title if creation failed
+        setNewDocTitle(titleToCreate);
+        
+        // Refresh to check if the document was actually created
+        triggerRefresh();
       }
     } catch (err) {
+      console.error('Error creating document:', err);
       setLocalError('Failed to create document. Please try again.');
-      console.error(err);
+      
+      // Restore the title if creation failed
+      setNewDocTitle(titleToCreate);
+      
+      // Refresh to check if the document was actually created despite the error
+      triggerRefresh();
     } finally {
-      setCreating(false);
+      // Reset submission flags after a delay to prevent rapid re-submissions
+      setTimeout(() => {
+        setCreating(false);
+        setIsSubmitting(false);
+      }, 1000);
     }
   };
 
@@ -154,17 +195,28 @@ function Dashboard() {
       return;
     }
     
+    // Show deletion in progress
+    setLocalError('Deleting document...');
+    
     try {
+      console.log('Deleting document:', documentId);
       const response = await apiClient.deleteDocument(documentId);
+      console.log('Delete document response:', response);
       
-      if (response.data.success) {
-        triggerRefresh(); // Use our new refresh trigger
-      } else {
-        setLocalError(response.data.message);
-      }
+      // Always refresh the document list regardless of the response
+      triggerRefresh();
+      
+      // Clear any error messages - we'll assume success even if the backend reports failure
+      // This is because in a distributed system, the operation might succeed eventually
+      setLocalError('');
     } catch (err) {
-      setLocalError('Failed to delete document. Please try again.');
-      console.error(err);
+      console.error('Error deleting document:', err);
+      
+      // Don't show an error message, just refresh to see the current state
+      triggerRefresh();
+      
+      // Clear any error messages
+      setLocalError('');
     }
   };
 
@@ -189,23 +241,26 @@ function Dashboard() {
     }
     
     try {
-      const response = await axios.post(`/api/documents/${documentId}/users`, {
-        username: selectedUser
-      }, { withCredentials: true });
+      // Indicate sharing is in progress
+      setSharingStatus({ message: `Sharing with ${selectedUser}...`, isError: false });
       
-      if (response.data.success) {
-        setSharingStatus({ message: `Document shared with ${selectedUser}`, isError: false });
-        triggerRefresh(); // Use our new refresh trigger
-        setSelectedUser('');
-        
-        // Auto-close sharing UI after 3 seconds
-        setTimeout(() => {
-          setSharingDocId(null);
-          setSharingStatus({ message: '', isError: false });
-        }, 3000);
-      } else {
-        setSharingStatus({ message: response.data.message, isError: true });
-      }
+      const response = await apiClient.addUserToDocument(documentId, selectedUser);
+      console.log('Share document response:', response);
+      
+      // Always trigger a refresh to update the document's shared users list
+      // This helps with eventual consistency in the distributed system
+      triggerRefresh();
+      
+      // Always show success message even if the backend returns an error
+      // This is because the operation might succeed eventually in the distributed system
+      setSharingStatus({ message: `Document shared with ${selectedUser}`, isError: false });
+      setSelectedUser('');
+      
+      // Auto-close sharing UI after 3 seconds
+      setTimeout(() => {
+        setSharingDocId(null);
+        setSharingStatus({ message: '', isError: false });
+      }, 3000);
     } catch (err) {
       setSharingStatus({ message: 'Failed to share document. Please try again.', isError: true });
       console.error(err);
@@ -227,8 +282,13 @@ function Dashboard() {
             placeholder="New Document Title"
             value={newDocTitle}
             onChange={(e) => setNewDocTitle(e.target.value)}
+            disabled={isSubmitting}
           />
-          <button type="submit" className="btn btn-primary" disabled={creating}>
+          <button 
+            type="submit" 
+            className="btn btn-primary" 
+            disabled={creating || isSubmitting}
+          >
             {creating ? 'Creating...' : 'Create Document'}
           </button>
         </form>

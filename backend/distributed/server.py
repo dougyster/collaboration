@@ -512,7 +512,18 @@ class DistributedServer(ds_grpc.DistributedServiceServicer):
             elif operation == 'create_document':
                 title = args.get('title')
                 username = args.get('username')
-                self.business_logic.create_document(title, username)
+                document_id = args.get('document_id')
+                
+                # If document_id is provided, use it to avoid duplicate creation
+                if document_id:
+                    # Check if document already exists to avoid duplicate creation
+                    existing_doc = self.business_logic.db.get_document(document_id)
+                    if not existing_doc:
+                        # Create document with the specified ID
+                        self.business_logic.create_document_with_id(title, username, document_id)
+                else:
+                    # Fallback to normal creation if no ID is provided
+                    self.business_logic.create_document(title, username)
             
             elif operation == 'update_document_title':
                 document_id = args.get('document_id')
@@ -723,13 +734,26 @@ class DistributedServer(ds_grpc.DistributedServiceServicer):
         
         # If leader, append to log and replicate
         if self.state == LEADER:
+            # Generate document ID here to ensure consistency
+            document_id = str(uuid.uuid4())
+            # Add document_id to the command so it's used consistently
+            command['args']['document_id'] = document_id
+            
             index = self._append_log_entry(command)
             # Wait for the entry to be committed
             while self.commit_index < index and self.running:
                 time.sleep(0.01)
-            
-            # Return the result from the business logic
-            return self.business_logic.create_document(title, username)
+                
+            # Get the document from the database instead of creating it again
+            # The document was already created when the log entry was applied
+            document = self.business_logic.db.get_document(document_id)
+            if document:
+                return True, "Document created successfully.", document_id
+            else:
+                # Something went wrong during log application
+                logger.error(f"Document {document_id} was not created during log application")
+                # Try to create it now as a fallback
+                return self.business_logic.create_document_with_id(title, username, document_id)
         
         # If not leader, redirect to leader
         elif self.leader_id:

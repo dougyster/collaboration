@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../services/ApiClient';
 import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
 
 // Custom hook for polling document changes
 function useDocumentPolling(documentId, username, initialLastEdited, onDocumentChanged) {
@@ -20,8 +21,8 @@ function useDocumentPolling(documentId, username, initialLastEdited, onDocumentC
         isPollingRef.current = true;
         const response = await apiClient.getDocument(documentId);
         
-        if (response.data.success) {
-          const doc = response.data.document;
+        if (response.success) {
+          const doc = response.document;
           const currentLastEdited = new Date(doc.last_edited).getTime();
           const previousLastEdited = lastPolled || initialLastEdited;
           
@@ -75,10 +76,40 @@ function DocumentEditor() {
   const navigate = useNavigate();
   const saveTimeoutRef = useRef(null);
   const userEditingRef = useRef(false);
-
+  
+  // Define fetchDocument before it's used in useEffect
+  const fetchDocument = React.useCallback(async () => {
+    if (!user) return; // Don't fetch if no user
+    
+    try {
+      setLoading(true);
+      const response = await apiClient.getDocument(documentId);
+      console.log('Document response:', response);
+      
+      if (response.success) {
+        const doc = response.document;
+        setDocument(doc);
+        setContent(doc.data);
+        setBaseContent(doc.data);
+        setTitle(doc.title);
+        
+        // Set initial last edited timestamp for polling
+        const lastEditedTimestamp = new Date(doc.last_edited).getTime();
+        setInitialLastEdited(lastEditedTimestamp);
+      } else {
+        setError('Failed to fetch document');
+      }
+    } catch (err) {
+      setError('Error fetching document. Please try again.');
+      console.error('Error fetching document:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [documentId, user]);
+  
   useEffect(() => {
     fetchDocument();
-  }, [documentId]);
+  }, [fetchDocument]);
   
   // Handle document changes from other users
   const handleDocumentChanged = React.useCallback((updatedDoc) => {
@@ -119,34 +150,6 @@ function DocumentEditor() {
     };
   }, []);
 
-  const fetchDocument = async () => {
-    if (!user) return; // Don't fetch if no user
-    
-    try {
-      setLoading(true);
-      const response = await apiClient.getDocument(documentId);
-      
-      if (response.data.success) {
-        const doc = response.data.document;
-        setDocument(doc);
-        setContent(doc.data);
-        setBaseContent(doc.data);
-        setTitle(doc.title);
-        
-        // Set initial last edited timestamp for polling
-        const lastEditedTimestamp = new Date(doc.last_edited).getTime();
-        setInitialLastEdited(lastEditedTimestamp);
-      } else {
-        setError('Failed to fetch document');
-      }
-    } catch (err) {
-      setError('Error fetching document. Please try again.');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleContentChange = (e) => {
     setContent(e.target.value);
     
@@ -175,22 +178,19 @@ function DocumentEditor() {
       setMessage('');
       setError('');
       
-      const response = await axios.put(`/api/documents/${documentId}/content`, {
-        content: newContent,
-        base_content: baseContent,
-        username: user.username // Explicitly pass the username
-      }, { withCredentials: true });
+      const response = await apiClient.updateDocumentContent(documentId, newContent);
+      console.log('Save document response:', response);
       
-      if (response.data.success) {
+      if (response.success) {
         setMessage('Document saved');
-        setBaseContent(response.data.content); // Update base content for future merges
+        setBaseContent(response.content || newContent); // Update base content for future merges
         
         // If the content was modified during merge, update the editor
-        if (response.data.content !== newContent) {
-          setContent(response.data.content);
+        if (response.content && response.content !== newContent) {
+          setContent(response.content);
         }
       } else {
-        setError(response.data.message);
+        setError(response.message || 'Failed to save document');
       }
     } catch (err) {
       setError('Failed to save document. Please try again.');
@@ -218,18 +218,17 @@ function DocumentEditor() {
     }
     
     try {
-      const response = await axios.put(`/api/documents/${documentId}/title`, {
-        title
-      }, { withCredentials: true });
+      const response = await apiClient.updateDocumentTitle(documentId, title);
+      console.log('Update title response:', response);
       
-      if (!response.data.success) {
-        setError(response.data.message);
+      if (!response.success) {
+        setError(response.message || 'Failed to update title');
         setTitle(document.title);
       }
     } catch (err) {
       setError('Failed to update title. Please try again.');
       setTitle(document.title);
-      console.error(err);
+      console.error('Error updating title:', err);
     } finally {
       setEditingTitle(false);
     }
