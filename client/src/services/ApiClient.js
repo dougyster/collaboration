@@ -197,9 +197,22 @@ class ApiClient {
   }
 
   async addUserToDocument(documentId, userToAdd) {
-    // The backend expects the user to add in the 'username' parameter
-    console.log(`Sharing document ${documentId} with user ${userToAdd}`);
-    return this.post(`/api/documents/${documentId}/users`, { username: userToAdd });
+    const currentUsername = localStorage.getItem('username');
+    console.log(`User ${currentUsername} sharing document ${documentId} with user ${userToAdd}`);
+    
+    // Pass both the current user (owner_username) and the user to add (username)
+    return this.post(`/api/documents/${documentId}/users`, { 
+      username: userToAdd,
+      owner_username: currentUsername 
+    });
+  }
+  
+  async removeUserFromDocument(documentId, userToRemove) {
+    const currentUsername = localStorage.getItem('username');
+    console.log(`User ${currentUsername} removing user ${userToRemove} from document ${documentId}`);
+    
+    // Pass the owner_username as a query parameter for DELETE requests
+    return this.delete(`/api/documents/${documentId}/users/${userToRemove}?owner_username=${encodeURIComponent(currentUsername)}`);
   }
 
   async getClusterStatus() {

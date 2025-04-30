@@ -15,7 +15,14 @@ from backend.distributed.gateway import DistributedGateway
 # Initialize Flask app
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev_secret_key')  # For session management
-CORS(app, supports_credentials=True)  # Enable CORS for cross-origin requests
+
+# Configure CORS to allow requests from any origin with credentials
+CORS(app, 
+     supports_credentials=True,
+     origins=["*"],  # Allow all origins
+     allow_headers=["Content-Type", "Authorization", "X-Request-ID"],
+     expose_headers=["Content-Type", "Authorization"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
 # Initialize distributed gateway
 default_db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'database', 'data.json')
@@ -277,14 +284,30 @@ def delete_document(document_id):
 @app.route('/api/documents/<document_id>/users', methods=['POST'])
 def add_user_to_document(document_id):
     """Add a user to a document."""
-    username = session.get('username')
-    if not username:
-        return jsonify({'success': False, 'message': 'Not logged in.'}), 401
-    
     data = request.json
+    
+    # ONLY use explicit username from request body - no session fallback
+    owner_username = data.get('owner_username')  # The user who owns/is sharing the document
+    
+    # Require explicit owner_username in the request
+    if not owner_username:
+        app.logger.error(f"Document sharing failed: No owner_username provided in request")
+        return jsonify({
+            'success': False, 
+            'message': 'Owner username must be explicitly provided in the request.'
+        }), 401
+    
+    # Get the username of the user to add
     user_to_add = data.get('username')
     
-    success, message = distributed_gateway.add_user_to_document(document_id, user_to_add, username)
+    if not user_to_add:
+        app.logger.error(f"Document sharing failed: No username to add provided in request")
+        return jsonify({'success': False, 'message': 'No user specified to add to document.'}), 400
+    
+    # Log the sharing attempt for debugging
+    app.logger.info(f"User '{owner_username}' attempting to share document '{document_id}' with user '{user_to_add}'")
+    
+    success, message = distributed_gateway.add_user_to_document(document_id, user_to_add, owner_username)
     
     if success:
         return jsonify({'success': True, 'message': message}), 200
@@ -294,11 +317,20 @@ def add_user_to_document(document_id):
 @app.route('/api/documents/<document_id>/users/<username_to_remove>', methods=['DELETE'])
 def remove_user_from_document(document_id, username_to_remove):
     """Remove a user from a document."""
-    username = session.get('username')
-    if not username:
-        return jsonify({'success': False, 'message': 'Not logged in.'}), 401
+    # Get owner username from query parameters - explicit username passing
+    owner_username = request.args.get('owner_username')
     
-    success, message = distributed_gateway.remove_user_from_document(document_id, username_to_remove, username)
+    # Require explicit owner_username in the request
+    if not owner_username:
+        app.logger.error(f"Document user removal failed: No owner_username provided in request")
+        return jsonify({
+            'success': False, 
+            'message': 'Owner username must be explicitly provided in the request.'
+        }), 401
+    
+    app.logger.info(f"User '{owner_username}' attempting to remove user '{username_to_remove}' from document '{document_id}'")
+    
+    success, message = distributed_gateway.remove_user_from_document(document_id, username_to_remove, owner_username)
     
     if success:
         return jsonify({'success': True, 'message': message}), 200

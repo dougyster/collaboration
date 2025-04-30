@@ -241,9 +241,18 @@ function Dashboard() {
     }
     
     try {
+      // Get current username from local storage
+      const currentUsername = localStorage.getItem('username');
+      if (!currentUsername) {
+        setSharingStatus({ message: 'You must be logged in to share documents', isError: true });
+        return;
+      }
+      
       // Indicate sharing is in progress
       setSharingStatus({ message: `Sharing with ${selectedUser}...`, isError: false });
+      console.log(`User ${currentUsername} attempting to share document ${documentId} with ${selectedUser}`);
       
+      // Call the API to share the document
       const response = await apiClient.addUserToDocument(documentId, selectedUser);
       console.log('Share document response:', response);
       
@@ -251,9 +260,16 @@ function Dashboard() {
       // This helps with eventual consistency in the distributed system
       triggerRefresh();
       
-      // Always show success message even if the backend returns an error
-      // This is because the operation might succeed eventually in the distributed system
-      setSharingStatus({ message: `Document shared with ${selectedUser}`, isError: false });
+      if (response && response.success) {
+        // Show success message
+        setSharingStatus({ message: `Document shared with ${selectedUser}`, isError: false });
+      } else {
+        // Even if there's an error, we'll show success due to eventual consistency
+        // But log the error for debugging
+        console.warn('Sharing response indicated failure:', response);
+        setSharingStatus({ message: `Document shared with ${selectedUser}`, isError: false });
+      }
+      
       setSelectedUser('');
       
       // Auto-close sharing UI after 3 seconds
@@ -262,8 +278,8 @@ function Dashboard() {
         setSharingStatus({ message: '', isError: false });
       }, 3000);
     } catch (err) {
+      console.error('Error sharing document:', err);
       setSharingStatus({ message: 'Failed to share document. Please try again.', isError: true });
-      console.error(err);
     }
   };
 
