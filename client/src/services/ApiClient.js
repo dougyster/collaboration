@@ -162,42 +162,57 @@ class ApiClient {
 
   // Document methods
   async getDocuments() {
-    const username = localStorage.getItem('username');
+    const username = this.getCurrentUsername();
     return this.get(`/api/documents?username=${encodeURIComponent(username)}`);
   }
 
   async getDocument(documentId) {
-    const username = localStorage.getItem('username');
+    const username = this.getCurrentUsername();
     return this.get(`/api/documents/${documentId}?username=${encodeURIComponent(username)}`);
   }
 
   async createDocument(title) {
-    const username = localStorage.getItem('username');
+    const username = this.getCurrentUsername();
     return this.post('/api/documents', { title, username });
   }
 
   async updateDocumentContent(documentId, content) {
-    const username = localStorage.getItem('username');
+    const username = this.getCurrentUsername();
     return this.put(`/api/documents/${documentId}/content`, { content, username });
   }
 
   async updateDocumentTitle(documentId, title) {
-    const username = localStorage.getItem('username');
+    const username = this.getCurrentUsername();
     return this.put(`/api/documents/${documentId}/title`, { title, username });
   }
 
   async deleteDocument(documentId) {
-    const username = localStorage.getItem('username');
+    const username = this.getCurrentUsername();
     return this.delete(`/api/documents/${documentId}?username=${encodeURIComponent(username)}`);
   }
 
   async getUsers() {
-    const username = localStorage.getItem('username');
+    const username = this.getCurrentUsername();
     return this.get(`/api/users?username=${encodeURIComponent(username)}`);
   }
 
   async addUserToDocument(documentId, userToAdd) {
-    const currentUsername = localStorage.getItem('username');
+    const currentUsername = this.getCurrentUsername();
+    
+    // Enhanced debugging for username retrieval
+    console.log('DEBUG - localStorage contents:', {
+      username: localStorage.getItem('username'),
+      allKeys: Object.keys(localStorage),
+      documentId,
+      userToAdd
+    });
+    
+    // Check if username is missing and provide clear error
+    if (!currentUsername) {
+      console.error('ERROR: No username found in localStorage! User must be logged in to share documents.');
+      return Promise.reject(new Error('No username found in localStorage. Please log out and log back in.'));
+    }
+    
     console.log(`User ${currentUsername} sharing document ${documentId} with user ${userToAdd}`);
     
     // Pass both the current user (owner_username) and the user to add (username)
@@ -208,8 +223,14 @@ class ApiClient {
   }
   
   async removeUserFromDocument(documentId, userToRemove) {
-    const currentUsername = localStorage.getItem('username');
+    const currentUsername = this.getCurrentUsername();
     console.log(`User ${currentUsername} removing user ${userToRemove} from document ${documentId}`);
+    
+    // Check if username is missing and provide clear error
+    if (!currentUsername) {
+      console.error('ERROR: No username found in localStorage! User must be logged in to remove users from documents.');
+      return Promise.reject(new Error('No username found in localStorage. Please log out and log back in.'));
+    }
     
     // Pass the owner_username as a query parameter for DELETE requests
     return this.delete(`/api/documents/${documentId}/users/${userToRemove}?owner_username=${encodeURIComponent(currentUsername)}`);
@@ -217,6 +238,33 @@ class ApiClient {
 
   async getClusterStatus() {
     return this.get('/api/cluster/status');
+  }
+  
+  /**
+   * Helper method to get the current username from localStorage
+   * Handles both direct username and username stored in collaborationUser object
+   */
+  getCurrentUsername() {
+    // First try to get username directly (for backward compatibility)
+    const directUsername = localStorage.getItem('username');
+    if (directUsername) return directUsername;
+    
+    // If not found, try to get it from the collaborationUser object
+    const userJson = localStorage.getItem('collaborationUser');
+    if (userJson) {
+      try {
+        const userObj = JSON.parse(userJson);
+        if (userObj && userObj.username) {
+          // For convenience, also set it directly for future use
+          localStorage.setItem('username', userObj.username);
+          return userObj.username;
+        }
+      } catch (e) {
+        console.error('Error parsing user JSON from localStorage:', e);
+      }
+    }
+    
+    return null;
   }
 }
 
