@@ -567,7 +567,43 @@ class DistributedServer(ds_grpc.DistributedServiceServicer):
         
         except Exception as e:
             logger.error(f"Error applying command: {e}")
-    
+
+    def RemoveUserFromDocument(self, request, context):
+        """Handle RemoveUserFromDocument gRPC request."""
+        try:
+            success, message = self.remove_user_from_document(
+                request.document_id,
+                request.username,
+                request.requester
+            )
+            return ds_pb2.DocUserResponse(success=success, message=message)
+        except Exception as e:
+            logger.error(f"Error in RemoveUserFromDocument: {e}")
+            return ds_pb2.DocUserResponse(success=False, message=f"Server error: {str(e)}")
+
+    def AddUserToDocument(self, request, context):
+        """Handle AddUserToDocument gRPC request."""
+        try:
+            logger.info(f"Server {self.server_id} received AddUserToDocument gRPC request: doc={request.document_id}, user={request.username}, requester={request.requester}")
+            
+            # Check if this server is the leader
+            if self.state != LEADER:
+                logger.warning(f"Non-leader server {self.server_id} received AddUserToDocument request, current leader: {self.leader_id}")
+                return ds_pb2.DocUserResponse(success=False, message=f"Not the leader. Current leader: {self.leader_id}")
+            
+            # Process the request as leader
+            success, message = self.add_user_to_document(
+                request.document_id,
+                request.username,
+                request.requester
+            )
+            
+            logger.info(f"Server {self.server_id} completed AddUserToDocument request with result: success={success}, message={message}")
+            return ds_pb2.DocUserResponse(success=success, message=message)
+        except Exception as e:
+            logger.error(f"Error in AddUserToDocument: {e}")
+            return ds_pb2.DocUserResponse(success=False, message=f"Server error: {str(e)}")
+
     def _append_log_entry(self, command_dict):
         """Append a new entry to the log."""
         with self.lock:
@@ -877,6 +913,8 @@ class DistributedServer(ds_grpc.DistributedServiceServicer):
     
     def add_user_to_document(self, document_id, username, added_by):
         """Add a user to a document."""
+        logger.info(f"Server {self.server_id} processing add_user_to_document: doc={document_id}, user={username}, added_by={added_by}")
+        
         command = {
             'operation': 'add_user_to_document',
             'args': {
@@ -888,23 +926,57 @@ class DistributedServer(ds_grpc.DistributedServiceServicer):
         
         # If leader, append to log and replicate
         if self.state == LEADER:
+            logger.info(f"Server {self.server_id} is LEADER - processing add_user_to_document directly")
             index = self._append_log_entry(command)
             # Wait for the entry to be committed
             while self.commit_index < index and self.running:
                 time.sleep(0.01)
             
             # Return the result from the business logic
-            return self.business_logic.add_user_to_document(document_id, username, added_by)
+            result = self.business_logic.add_user_to_document(document_id, username, added_by)
+            logger.info(f"Leader result for add_user_to_document: {result}")
+            return result
         
-        # If not leader, redirect to leader
+        # If not leader, forward request to leader
         elif self.leader_id:
-            # In a real implementation, we would forward the request to the leader
-            # For now, just return an error
+            leader_address = None
+            for peer in self.peer_addresses:
+                if peer.split(':')[0] == self.leader_id:
+                    leader_address = peer
+                    break
+            
+            if leader_address:
+                logger.info(f"Server {self.server_id} forwarding add_user_to_document to leader {self.leader_id} at {leader_address}")
+                try:
+                    # Try to forward the request to the leader
+                    with grpc.insecure_channel(leader_address) as channel:
+                        stub = ds_grpc.DistributedServiceStub(channel)
+                        request = ds_pb2.AddUserToDocumentRequest(
+                            document_id=document_id,
+                            username=username,
+                            added_by=added_by
+                        )
+                        # Use a longer timeout (5 seconds)
+                        response = stub.AddUserToDocument(request, timeout=5.0)
+                        logger.info(f"Forwarded add_user_to_document response: {response}")
+                        return response.success, response.message
+                except Exception as e:
+                    logger.error(f"Error forwarding add_user_to_document to leader: {e}")
+                    # If forwarding fails, try to handle it locally as a fallback
+                    result = self.business_logic.add_user_to_document(document_id, username, added_by)
+                    logger.info(f"Fallback local result for add_user_to_document: {result}")
+                    return result
+            
+            logger.warning(f"Cannot forward to leader {self.leader_id}: address not found")
             return False, f"Not the leader. Current leader: {self.leader_id}"
         
-        # If no leader, return an error
+        # If no leader, try to handle locally as a fallback
         else:
-            return False, "No leader available. Try again later."
+            logger.warning(f"No leader available for add_user_to_document, attempting local processing")
+            # As a fallback, try to process locally
+            result = self.business_logic.add_user_to_document(document_id, username, added_by)
+            logger.info(f"No-leader fallback result for add_user_to_document: {result}")
+            return result
     
     def remove_user_from_document(self, document_id, username, removed_by):
         """Remove a user from a document."""

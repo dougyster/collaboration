@@ -264,10 +264,10 @@ function Dashboard() {
         // Show success message
         setSharingStatus({ message: `Document shared with ${selectedUser}`, isError: false });
       } else {
-        // Even if there's an error, we'll show success due to eventual consistency
-        // But log the error for debugging
+        // Show the actual error message
+        const errorMessage = response?.message || 'Failed to share document. Please try again.';
         console.warn('Sharing response indicated failure:', response);
-        setSharingStatus({ message: `Document shared with ${selectedUser}`, isError: false });
+        setSharingStatus({ message: errorMessage, isError: true });
       }
       
       setSelectedUser('');

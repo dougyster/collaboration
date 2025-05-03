@@ -270,10 +270,15 @@ def update_document_content(document_id):
 @app.route('/api/documents/<document_id>', methods=['DELETE'])
 def delete_document(document_id):
     """Delete a document."""
-    username = session.get('username')
-    if not username:
-        return jsonify({'success': False, 'message': 'Not logged in.'}), 401
+    # Get username from query parameters - explicit username passing
+    username = request.args.get('username')
     
+    # Require explicit username in the request
+    if not username:
+        app.logger.error(f"Document deletion failed: No username provided in request")
+        return jsonify({'success': False, 'message': 'Username must be explicitly provided in the request.'}), 401
+    
+    app.logger.info(f"User '{username}' attempting to delete document '{document_id}'")
     success, message = distributed_gateway.delete_document(document_id, username)
     
     if success:
