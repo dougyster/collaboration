@@ -4,28 +4,26 @@ A real-time collaboration document editor similar to Google Docs. This applicati
 
 ## Project Structure
 
-- `backend/`: Flask backend with database, business logic, and API routes
+- `backend/`: Backend with distributed server architecture, business logic, and API routes
 - `client/`: React frontend for the user interface
 
 ## Setup and Running
 
 ### Backend Setup
 
-1. Navigate to the backend directory:
-   ```
-   cd backend
-   ```
+1. Navigate to the project root directory
 
 2. Install dependencies:
    ```
+   cd backend
    pip install -r requirements.txt
    ```
 
-3. Run the Flask server:
+3. Run the distributed server cluster:
    ```
-   python app.py
+   ./start_cluster.sh
    ```
-   This will start the server on http://localhost:5000
+   This will start a cluster of servers using the Raft consensus algorithm for distributed operation
 
 ### Frontend Setup
 
@@ -69,3 +67,28 @@ A real-time collaboration document editor similar to Google Docs. This applicati
 - `DELETE /api/documents/:id`: Delete a document
 - `POST /api/documents/:id/users`: Add a user to a document
 - `DELETE /api/documents/:id/users/:username`: Remove a user from a document
+
+## Testing
+
+The application includes a comprehensive test suite for the backend components:
+
+- Business logic tests
+- Distributed server tests
+- Gateway tests
+- API routes tests
+
+To run the tests, navigate to the backend directory and use Python's unittest framework:
+
+```
+cd backend
+python -m unittest discover tests
+```
+
+Individual test files can be run with:
+
+```
+python -m unittest tests/test_business_logic.py
+python -m unittest tests/test_server.py
+python -m unittest tests/test_gateway.py
+python -m unittest tests/test_routes.py
+```
