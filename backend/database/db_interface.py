@@ -7,13 +7,41 @@ from datetime import datetime
 import json
 import os
 import threading
+import bcrypt
 
 # Define schemas as type hints
 class User:
-    def __init__(self, username: str, password: str, documents: List[str] = None):
+    def __init__(self, username: str, password: str, documents: List[str] = None, is_hashed: bool = False):
         self.username = username
-        self.password = password  # Note: In a real app, this should be hashed
+        # Hash the password if it's not already hashed
+        if not is_hashed:
+            self.password = self._hash_password(password)
+        else:
+            self.password = password
         self.documents = documents or []
+    
+    def _hash_password(self, password: str) -> str:
+        """Hash a password using bcrypt."""
+        # Convert password to bytes if it's a string
+        if isinstance(password, str):
+            password = password.encode('utf-8')
+        # Generate a salt and hash the password
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(password, salt)
+        # Return the hash as a string
+        return hashed.decode('utf-8')
+    
+    def verify_password(self, password: str) -> bool:
+        """Verify a password against the stored hash."""
+        # Convert password to bytes if it's a string
+        if isinstance(password, str):
+            password = password.encode('utf-8')
+        # Convert stored hash to bytes if it's a string
+        stored_hash = self.password
+        if isinstance(stored_hash, str):
+            stored_hash = stored_hash.encode('utf-8')
+        # Check if the password matches the hash
+        return bcrypt.checkpw(password, stored_hash)
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -27,7 +55,8 @@ class User:
         return cls(
             username=data["username"],
             password=data["password"],
-            documents=data.get("documents", [])
+            documents=data.get("documents", []),
+            is_hashed=True  # Password from database is already hashed
         )
 
 class Document:

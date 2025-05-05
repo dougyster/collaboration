@@ -49,7 +49,7 @@ class BusinessLogic:
         if not user:
             return False, "User not found."
         
-        if user.password != password:  # In a real app, use proper password hashing
+        if not user.verify_password(password):
             return False, "Invalid password."
         
         return True, "Authentication successful."

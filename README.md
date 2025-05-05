@@ -45,10 +45,11 @@ A real-time collaboration document editor similar to Google Docs. This applicati
 
 ## Features
 
-- User authentication (register, login, logout)
+- User authentication (register, login, logout) with bcrypt password hashing
 - Create, view, edit, and delete documents
 - Real-time document editing with conflict resolution
 - Share documents with other users
+- Secure password storage using bcrypt
 
 ## API Endpoints
 
@@ -92,3 +93,20 @@ python -m unittest tests/test_server.py
 python -m unittest tests/test_gateway.py
 python -m unittest tests/test_routes.py
 ```
+
+## Security
+
+### Password Hashing
+
+This application uses bcrypt for secure password hashing. When users register, their passwords are hashed before being stored in the database. During authentication, the provided password is verified against the stored hash.
+
+### Password Migration
+
+A migration script is provided to update existing passwords to use bcrypt hashing:
+
+```
+source venv/bin/activate
+python backend/scripts/migrate_passwords.py
+```
+
+This script will automatically convert plaintext passwords in the database to bcrypt hashed passwords.
